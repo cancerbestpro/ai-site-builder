@@ -13,16 +13,22 @@ interface BuilderSidebarProps {
   files: Array<{ name: string; content: string; status: 'creating' | 'complete' }>;
   isGenerating: boolean;
   initialPrompt: string;
+  projectName: string;
   onFilesUpdate: (files: Array<{ name: string; content: string; status: 'creating' | 'complete' }>) => void;
   onGeneratingChange: (generating: boolean) => void;
+  onSave: () => void;
+  onProjectNameChange: (name: string) => void;
 }
 
 const BuilderSidebar = ({ 
   files, 
   isGenerating, 
   initialPrompt,
+  projectName,
   onFilesUpdate, 
-  onGeneratingChange 
+  onGeneratingChange,
+  onSave,
+  onProjectNameChange,
 }: BuilderSidebarProps) => {
   const [prompt, setPrompt] = useState(initialPrompt);
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);

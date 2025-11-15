@@ -1,17 +1,24 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Eye, Code, BarChart3, Rocket } from "lucide-react";
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { Eye, Code, BarChart3, Rocket, Save } from "lucide-react";
+import CodeEditor from "./CodeEditor";
 
 interface BuilderPreviewProps {
   files: Array<{ name: string; content: string; status: 'creating' | 'complete' }>;
   currentView: 'preview' | 'code' | 'analytics';
   onViewChange: (view: 'preview' | 'code' | 'analytics') => void;
+  onFilesChange: (files: Array<{ name: string; content: string; status: 'creating' | 'complete' }>) => void;
+  onSave: () => void;
 }
 
-const BuilderPreview = ({ files, currentView, onViewChange }: BuilderPreviewProps) => {
+const BuilderPreview = ({ files, currentView, onViewChange, onFilesChange, onSave }: BuilderPreviewProps) => {
   const htmlFile = files.find(f => f.name.endsWith('.html'));
+
+  const handleFileChange = (index: number, newContent: string) => {
+    const updatedFiles = [...files];
+    updatedFiles[index] = { ...updatedFiles[index], content: newContent };
+    onFilesChange(updatedFiles);
+  };
 
   return (
     <div className="flex-1 flex flex-col bg-background">
@@ -34,10 +41,16 @@ const BuilderPreview = ({ files, currentView, onViewChange }: BuilderPreviewProp
           </TabsList>
         </Tabs>
         
-        <Button variant="default" className="gap-2">
-          <Rocket className="w-4 h-4" />
-          Publish
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onSave} className="gap-2">
+            <Save className="w-4 h-4" />
+            Save
+          </Button>
+          <Button variant="default" className="gap-2">
+            <Rocket className="w-4 h-4" />
+            Publish
+          </Button>
+        </div>
       </div>
 
       {/* Content Area */}
@@ -66,20 +79,13 @@ const BuilderPreview = ({ files, currentView, onViewChange }: BuilderPreviewProp
 
           <TabsContent value="code" className="h-full m-0 p-6">
             {files.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {files.map((file, idx) => (
-                  <div key={idx} className="border border-border rounded-lg overflow-hidden">
-                    <div className="bg-muted px-4 py-2 font-mono text-sm font-semibold">
-                      {file.name}
-                    </div>
-                    <SyntaxHighlighter
-                      language={file.name.endsWith('.html') ? 'html' : file.name.endsWith('.css') ? 'css' : 'javascript'}
-                      style={vscDarkPlus}
-                      customStyle={{ margin: 0, borderRadius: 0 }}
-                    >
-                      {file.content}
-                    </SyntaxHighlighter>
-                  </div>
+                  <CodeEditor
+                    key={idx}
+                    file={file}
+                    onChange={(newContent) => handleFileChange(idx, newContent)}
+                  />
                 ))}
               </div>
             ) : (
