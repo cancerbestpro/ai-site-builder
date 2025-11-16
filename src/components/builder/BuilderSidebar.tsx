@@ -43,32 +43,70 @@ const BuilderSidebar = ({
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     
     try {
-      const { data, error } = await supabase.functions.invoke('generate-website', {
-        body: { prompt: userMessage }
+      const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-website`;
+      
+      const response = await fetch(FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ prompt: userMessage }),
       });
 
-      if (error) throw error;
+      if (!response.ok || !response.body) {
+        throw new Error('Failed to start generation');
+      }
 
-      if (data?.files && Array.isArray(data.files)) {
-        // Show files being created with shimmer effect
-        const newFiles: Array<{ name: string; content: string; status: 'creating' | 'complete' }> = [];
-        for (let i = 0; i < data.files.length; i++) {
-          await new Promise(resolve => setTimeout(resolve, 600));
-          const file = data.files[i];
-          newFiles.push({ ...file, status: 'creating' as const });
-          onFilesUpdate([...newFiles]);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const collectedFiles: Array<{ name: string; content: string; status: 'creating' | 'complete' }> = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+          let line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+          
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          if (!line.startsWith('data: ')) continue;
+          
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') break;
+          
+          try {
+            const parsed = JSON.parse(data);
+            
+            if (parsed.type === 'status') {
+              setMessages(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.role === 'assistant') {
+                  return prev.slice(0, -1).concat({ role: 'assistant', content: parsed.message });
+                }
+                return prev.concat({ role: 'assistant', content: parsed.message });
+              });
+            } else if (parsed.type === 'file') {
+              const file = { ...parsed.data, status: 'creating' as const };
+              collectedFiles.push(file);
+              onFilesUpdate([...collectedFiles]);
+            } else if (parsed.type === 'complete') {
+              // Mark all files as complete
+              const completedFiles = collectedFiles.map(f => ({ ...f, status: 'complete' as const }));
+              onFilesUpdate(completedFiles);
+              setMessages(prev => [...prev, { role: 'assistant', content: parsed.message }]);
+            } else if (parsed.type === 'error') {
+              throw new Error(parsed.message);
+            }
+          } catch (e) {
+            console.error('Parse error:', e);
+          }
         }
-
-        // Mark all files as complete
-        await new Promise(resolve => setTimeout(resolve, 800));
-        onFilesUpdate(data.files.map((f: any) => ({ ...f, status: 'complete' as const })));
-
-        setMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: data.message || 'Website generated successfully! You can now preview and edit your website.' 
-        }]);
-      } else {
-        throw new Error('Invalid response format from AI');
       }
 
     } catch (error) {
