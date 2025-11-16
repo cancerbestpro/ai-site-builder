@@ -1,124 +1,153 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Code, Zap, Rocket, LogIn, FolderOpen } from "lucide-react";
+import { Sparkles, FolderOpen, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.png";
 
 const Index = () => {
   const [prompt, setPrompt] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  const { toast } = useToast();
+
+  // Auto-submit if prompt comes from navigation state
+  useEffect(() => {
+    if (location.state?.prompt && user) {
+      setPrompt(location.state.prompt);
+      // Auto-navigate to builder with prompt
+      setTimeout(() => {
+        navigate('/builder', { state: { prompt: location.state.prompt }, replace: true });
+      }, 100);
+    }
+  }, [location.state, user, navigate]);
 
   const handleCreateWebsite = () => {
-    if (prompt.trim()) {
-      if (user) {
-        navigate('/builder', { state: { prompt } });
-      } else {
-        navigate('/auth');
-      }
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to create a website",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
     }
+
+    if (!prompt.trim()) {
+      toast({
+        title: "Prompt Required",
+        description: "Please describe the website you want to create",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    navigate('/builder', { state: { prompt } });
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleCreateWebsite();
-    }
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    toast({
+      title: "Signed out",
+      description: "You have been signed out successfully",
+    });
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
+    <div className="min-h-screen hero-gradient-bg flex flex-col">
       {/* Header */}
-      <header className="w-full p-4 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <img src={logo} alt="Logo" className="w-8 h-8" />
-          <span className="font-semibold">AI Website Builder</span>
-        </div>
-        <div className="flex gap-2">
-          {user ? (
-            <>
-              <Button variant="outline" onClick={() => navigate('/projects')}>
-                <FolderOpen className="w-4 h-4 mr-2" />
-                My Projects
+      <header className="border-b border-border/50 bg-card/30 backdrop-blur-xl">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between relative z-10">
+          <div className="flex items-center gap-2">
+            <img src={logo} alt="AI Website Builder" className="w-8 h-8" />
+            <h1 className="text-xl font-bold">AI Website Builder</h1>
+          </div>
+          <div className="flex gap-2">
+            {user ? (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate('/projects')}
+                  className="gap-2 bg-card/50 backdrop-blur-sm"
+                >
+                  <FolderOpen className="w-4 h-4" />
+                  My Projects
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleSignOut}
+                  className="gap-2 bg-card/50 backdrop-blur-sm"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => navigate('/auth')} className="bg-primary hover:bg-primary/90">
+                Sign In
               </Button>
-              <Button onClick={() => navigate('/builder')}>
-                Create New
-              </Button>
-            </>
-          ) : (
-            <Button onClick={() => navigate('/auth')}>
-              <LogIn className="w-4 h-4 mr-2" />
-              Sign In
-            </Button>
-          )}
+            )}
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-3xl space-y-8 animate-fade-in">
-          {/* Logo & Header */}
-          <div className="text-center space-y-6">
-            <img src={logo} alt="AI Website Builder" className="w-20 h-20 mx-auto" />
-            <div>
-              <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
-                Build Websites with AI
-              </h1>
-              <p className="text-xl text-muted-foreground">
-                Transform your ideas into stunning websites in seconds
+      <main className="flex-1 flex items-center justify-center p-4 relative z-10">
+        <div className="w-full max-w-3xl space-y-8">
+          <div className="text-center space-y-4">
+            <div className="flex justify-center mb-6">
+              <div className="p-4 rounded-2xl bg-primary/20 backdrop-blur-sm border border-primary/30 shadow-lg shadow-primary/20">
+                <Sparkles className="w-16 h-16 text-primary" />
+              </div>
+            </div>
+            <h2 className="text-5xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground to-primary">
+              Create Your Dream Website
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Describe your vision, and our AI will generate a beautiful, professional React website in seconds.
+            </p>
+          </div>
+
+          <div className="bg-card/50 backdrop-blur-xl border border-border/50 rounded-2xl p-8 shadow-2xl shadow-primary/5">
+            <div className="space-y-4">
+              <Textarea
+                placeholder="Describe the website you want to create... 
+e.g., 'A modern landing page for a coffee shop with a hero section, menu, and contact form'"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.ctrlKey && prompt.trim()) {
+                    handleCreateWebsite();
+                  }
+                }}
+                className="min-h-[200px] resize-none text-lg bg-background/50 border-border/50"
+              />
+              <Button 
+                onClick={handleCreateWebsite}
+                size="lg"
+                className="w-full text-lg h-14 gap-2 bg-gradient-to-r from-primary to-primary-glow hover:opacity-90 transition-opacity"
+                disabled={!prompt.trim()}
+              >
+                <Sparkles className="w-5 h-5" />
+                Generate Website
+              </Button>
+              <p className="text-xs text-center text-muted-foreground">
+                Press Ctrl+Enter to generate quickly
               </p>
             </div>
           </div>
 
-          {/* Main Input */}
-          <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary to-primary-glow rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300" />
-            <div className="relative bg-card border border-border rounded-2xl p-6 shadow-elegant">
-              <Textarea
-                placeholder="Describe the website you want to create...&#10;&#10;Example: 'Create a modern portfolio website with a hero section, about page, and contact form'"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="min-h-[150px] text-base resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-              />
-              <div className="flex justify-between items-center mt-4">
-                <p className="text-sm text-muted-foreground">
-                  {user ? 'Press Enter to create' : 'Sign in to save your projects'}
-                </p>
-                <Button 
-                  onClick={handleCreateWebsite}
-                  disabled={!prompt.trim()}
-                  size="lg"
-                  className="gap-2 bg-gradient-to-r from-primary to-primary-glow hover:opacity-90"
-                >
-                  <Sparkles className="w-5 h-5" />
-                  Create Website
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Features */}
-          <div className="grid md:grid-cols-3 gap-4">
-            {[
-              { icon: Zap, title: "Lightning Fast", desc: "Generate websites in seconds" },
-              { icon: Code, title: "Clean Code", desc: "Production-ready HTML, CSS & JS" },
-              { icon: Rocket, title: "Deploy Instantly", desc: "Publish with one click" },
-            ].map((feature, idx) => (
-              <div 
-                key={idx}
-                className="bg-card border border-border rounded-xl p-6 hover:border-primary/50 transition-all duration-300 hover:-translate-y-1"
-              >
-                <feature.icon className="w-10 h-10 text-primary mb-3" />
-                <h3 className="font-semibold mb-2">{feature.title}</h3>
-                <p className="text-sm text-muted-foreground">{feature.desc}</p>
-              </div>
-            ))}
-          </div>
+          {!user && (
+            <p className="text-center text-sm text-muted-foreground">
+              Sign in to save and manage your generated websites
+            </p>
+          )}
         </div>
-      </div>
+      </main>
     </div>
   );
 };
