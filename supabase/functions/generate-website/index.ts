@@ -18,43 +18,45 @@ Deno.serve(async (req) => {
 
     console.log('Generating React website for prompt:', prompt);
 
-    const systemPrompt = `You are an expert React website builder AI. Given a user's description, you generate complete, production-ready React components using TypeScript, Tailwind CSS, and modern React patterns.
+    const systemPrompt = `You are a React/TypeScript expert. Generate ONLY React components with TypeScript and Tailwind CSS.
 
-Your response should be structured as a JSON object with the following format:
+CRITICAL REQUIREMENTS:
+1. Output MUST be valid JSON in this EXACT format:
 {
-  "message": "Brief description of what you created",
+  "message": "Brief description",
   "files": [
-    {
-      "name": "App.tsx",
-      "content": "// Full React component code here"
-    },
-    {
-      "name": "components/Header.tsx",
-      "content": "// Component code"
-    }
+    {"name": "App.tsx", "content": "import React from 'react';\n\nconst App = () => {\n  return <div>...</div>;\n};\n\nexport default App;"}
   ]
 }
 
-CRITICAL GUIDELINES:
-- Generate ONLY React/TypeScript components (.tsx files), NOT HTML/CSS/JS
-- Use Tailwind CSS for ALL styling (no separate CSS files)
-- Create modular, reusable components in separate files
-- Use modern React patterns: hooks, functional components
-- Make it fully responsive with mobile-first design
-- Add smooth animations using Tailwind classes
-- Use semantic TypeScript types and interfaces
-- Include proper imports and exports
-- Main entry should be App.tsx
-- Create components folder for reusable components
-- Use Lucide React icons when needed
-- Make it visually stunning and professional
+2. NEVER generate HTML/CSS/JS files - ONLY .tsx React components
+3. Use Tailwind CSS classes for ALL styling (no <style> tags, no CSS files)
+4. Every file MUST be a valid React component with proper imports
+5. Main component MUST be named App.tsx
+6. Use lucide-react for icons: import { Icon } from 'lucide-react'
+7. Make it responsive and beautiful with Tailwind
+8. Use modern React: hooks, functional components, TypeScript types
 
-Example structure:
-- App.tsx (main component)
-- components/Hero.tsx
-- components/Features.tsx
-- components/Footer.tsx
-etc.`;
+Example App.tsx structure:
+import React from 'react';
+import { ArrowRight } from 'lucide-react';
+
+const App = () => {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <header className="p-6">
+        <h1 className="text-4xl font-bold text-gray-900">Welcome</h1>
+      </header>
+      <main className="container mx-auto px-4 py-12">
+        {/* Content */}
+      </main>
+    </div>
+  );
+};
+
+export default App;
+
+RESPOND ONLY WITH VALID JSON. NO HTML. NO EXPLANATORY TEXT OUTSIDE JSON.`;
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -103,18 +105,44 @@ etc.`;
             return;
           }
 
-          // Parse the AI response
+          // Parse the AI response - extract JSON from response
           let generatedData;
           try {
+            // Try to find JSON in the response
             const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-              generatedData = JSON.parse(jsonMatch[0]);
-            } else {
-              generatedData = JSON.parse(aiResponse);
+            if (!jsonMatch) {
+              console.error('No JSON found in response:', aiResponse.substring(0, 500));
+              controller.enqueue(encoder.encode('data: {"type":"error","message":"AI did not return valid JSON. Please try again."}\n\n'));
+              controller.close();
+              return;
+            }
+            
+            generatedData = JSON.parse(jsonMatch[0]);
+            
+            // Validate the response has the required structure
+            if (!generatedData.files || !Array.isArray(generatedData.files)) {
+              console.error('Invalid response structure:', generatedData);
+              controller.enqueue(encoder.encode('data: {"type":"error","message":"Invalid response format. Please try again."}\n\n'));
+              controller.close();
+              return;
+            }
+            
+            // Check if any files are HTML instead of React
+            const hasHtmlFiles = generatedData.files.some((f: any) => 
+              f.content?.includes('<!DOCTYPE html>') || 
+              f.content?.includes('<html') ||
+              f.name?.endsWith('.html')
+            );
+            
+            if (hasHtmlFiles) {
+              console.error('AI generated HTML instead of React components');
+              controller.enqueue(encoder.encode('data: {"type":"error","message":"Please try again - system generated wrong format"}\n\n'));
+              controller.close();
+              return;
             }
           } catch (parseError) {
-            console.error('Failed to parse AI response:', aiResponse);
-            controller.enqueue(encoder.encode('data: {"type":"error","message":"Failed to parse AI response"}\n\n'));
+            console.error('Failed to parse AI response:', parseError, aiResponse.substring(0, 500));
+            controller.enqueue(encoder.encode('data: {"type":"error","message":"Failed to parse response. Please try again."}\n\n'));
             controller.close();
             return;
           }

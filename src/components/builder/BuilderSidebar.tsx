@@ -84,9 +84,10 @@ const BuilderSidebar = ({
             const parsed = JSON.parse(data);
             
             if (parsed.type === 'status') {
+              // Immediately show status updates
               setMessages(prev => {
                 const last = prev[prev.length - 1];
-                if (last?.role === 'assistant') {
+                if (last?.role === 'assistant' && last.content.startsWith('🎨') || last.content.startsWith('⚡')) {
                   return prev.slice(0, -1).concat({ role: 'assistant', content: parsed.message });
                 }
                 return prev.concat({ role: 'assistant', content: parsed.message });
