@@ -41,6 +41,56 @@ export type Database = {
         }
         Relationships: []
       }
+      project_domains: {
+        Row: {
+          created_at: string
+          domain_name: string
+          domain_type: string
+          id: string
+          is_primary: boolean | null
+          project_id: string
+          ssl_status: string | null
+          status: string
+          updated_at: string
+          verification_token: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          domain_name: string
+          domain_type: string
+          id?: string
+          is_primary?: boolean | null
+          project_id: string
+          ssl_status?: string | null
+          status?: string
+          updated_at?: string
+          verification_token?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          domain_name?: string
+          domain_type?: string
+          id?: string
+          is_primary?: boolean | null
+          project_id?: string
+          ssl_status?: string | null
+          status?: string
+          updated_at?: string
+          verification_token?: string | null
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_domains_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_files: {
         Row: {
           content: string
@@ -88,7 +138,9 @@ export type Database = {
           name: string
           original_project_id: string | null
           prompt: string
+          published_at: string | null
           remix_count: number | null
+          subdomain: string | null
           thumbnail_url: string | null
           updated_at: string | null
           user_id: string
@@ -101,7 +153,9 @@ export type Database = {
           name: string
           original_project_id?: string | null
           prompt: string
+          published_at?: string | null
           remix_count?: number | null
+          subdomain?: string | null
           thumbnail_url?: string | null
           updated_at?: string | null
           user_id: string
@@ -114,7 +168,9 @@ export type Database = {
           name?: string
           original_project_id?: string | null
           prompt?: string
+          published_at?: string | null
           remix_count?: number | null
+          subdomain?: string | null
           thumbnail_url?: string | null
           updated_at?: string | null
           user_id?: string
