@@ -64,7 +64,11 @@ RESPOND ONLY WITH VALID JSON. NO HTML. NO EXPLANATORY TEXT OUTSIDE JSON.`;
           const encoder = new TextEncoder();
           
           // Send initial status
-          controller.enqueue(encoder.encode('data: {"type":"status","message":"🎨 Analyzing your request..."}\n\n'));
+          controller.enqueue(encoder.encode('data: {"type":"status","message":"🎨 Understanding your request..."}\n\n'));
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          controller.enqueue(encoder.encode('data: {"type":"status","message":"🧠 Planning website structure..."}\n\n'));
+          await new Promise(resolve => setTimeout(resolve, 200));
           
           const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
             method: 'POST',
@@ -94,7 +98,11 @@ RESPOND ONLY WITH VALID JSON. NO HTML. NO EXPLANATORY TEXT OUTSIDE JSON.`;
             return;
           }
 
-          controller.enqueue(encoder.encode('data: {"type":"status","message":"⚡ Generating React components..."}\n\n'));
+          controller.enqueue(encoder.encode('data: {"type":"status","message":"⚡ Creating components..."}\n\n'));
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          controller.enqueue(encoder.encode('data: {"type":"status","message":"✨ Styling with Tailwind CSS..."}\n\n'));
+          await new Promise(resolve => setTimeout(resolve, 200));
 
           const data = await response.json();
           const aiResponse = data.choices[0]?.message?.content;
@@ -147,13 +155,24 @@ RESPOND ONLY WITH VALID JSON. NO HTML. NO EXPLANATORY TEXT OUTSIDE JSON.`;
             return;
           }
 
-          // Stream files one by one
+          // Stream files one by one with detailed progress
           if (generatedData.files && Array.isArray(generatedData.files)) {
+            controller.enqueue(encoder.encode('data: {"type":"status","message":"📦 Generating project files..."}\n\n'));
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
             for (let i = 0; i < generatedData.files.length; i++) {
               const file = generatedData.files[i];
+              controller.enqueue(encoder.encode(`data: {"type":"status","message":"📝 Creating ${file.name}..."}\n\n`));
+              await new Promise(resolve => setTimeout(resolve, 200));
               controller.enqueue(encoder.encode(`data: {"type":"file","data":${JSON.stringify(file)}}\n\n`));
-              await new Promise(resolve => setTimeout(resolve, 300)); // Simulate streaming delay
+              await new Promise(resolve => setTimeout(resolve, 400));
             }
+            
+            controller.enqueue(encoder.encode('data: {"type":"status","message":"🔧 Configuring dependencies..."}\n\n'));
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            controller.enqueue(encoder.encode('data: {"type":"status","message":"🎉 Finalizing your website..."}\n\n'));
+            await new Promise(resolve => setTimeout(resolve, 300));
           }
 
           // Send completion message
