@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Eye, Code, BarChart3, Rocket, Save } from "lucide-react";
 import CodeEditor from "./CodeEditor";
+import { Sandpack } from "@codesandbox/sandpack-react";
 
 interface BuilderPreviewProps {
   files: Array<{ name: string; content: string; status: 'creating' | 'complete' }>;
@@ -12,13 +13,18 @@ interface BuilderPreviewProps {
 }
 
 const BuilderPreview = ({ files, currentView, onViewChange, onFilesChange, onSave }: BuilderPreviewProps) => {
-  const htmlFile = files.find(f => f.name.endsWith('.html'));
-
   const handleFileChange = (index: number, newContent: string) => {
     const updatedFiles = [...files];
     updatedFiles[index] = { ...updatedFiles[index], content: newContent };
     onFilesChange(updatedFiles);
   };
+
+  // Convert files to Sandpack format
+  const sandpackFiles = files.reduce((acc, file) => {
+    const path = file.name.startsWith('/') ? file.name : `/${file.name}`;
+    acc[path] = { code: file.content };
+    return acc;
+  }, {} as Record<string, { code: string }>);
 
   return (
     <div className="flex-1 flex flex-col bg-background">
@@ -56,14 +62,20 @@ const BuilderPreview = ({ files, currentView, onViewChange, onFilesChange, onSav
       {/* Content Area */}
       <div className="flex-1 overflow-auto">
         <Tabs value={currentView} className="h-full">
-          <TabsContent value="preview" className="h-full m-0 p-6">
-            {htmlFile ? (
-              <div className="bg-white rounded-lg border border-border h-full overflow-auto">
-                <iframe
-                  srcDoc={htmlFile.content}
-                  className="w-full h-full"
-                  title="Preview"
-                  sandbox="allow-scripts"
+          <TabsContent value="preview" className="h-full m-0 p-0">
+            {files.length > 0 ? (
+              <div className="h-full">
+                <Sandpack
+                  template="react-ts"
+                  files={sandpackFiles}
+                  theme="dark"
+                  options={{
+                    showNavigator: true,
+                    showLineNumbers: true,
+                    showInlineErrors: true,
+                    wrapContent: true,
+                    editorHeight: "100%",
+                  }}
                 />
               </div>
             ) : (
