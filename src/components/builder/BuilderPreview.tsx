@@ -1,18 +1,20 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Eye, Code, BarChart3, Rocket, Save } from "lucide-react";
+import { Eye, Code, BarChart3, Save } from "lucide-react";
 import CodeEditor from "./CodeEditor";
+import PublishButton from "./PublishButton";
 import { Sandpack } from "@codesandbox/sandpack-react";
 
 interface BuilderPreviewProps {
   files: Array<{ name: string; content: string; status: 'creating' | 'complete' }>;
   currentView: 'preview' | 'code' | 'analytics';
+  projectId: string | null;
   onViewChange: (view: 'preview' | 'code' | 'analytics') => void;
   onFilesChange: (files: Array<{ name: string; content: string; status: 'creating' | 'complete' }>) => void;
-  onSave: () => void;
+  onSave: () => Promise<void>;
 }
 
-const BuilderPreview = ({ files, currentView, onViewChange, onFilesChange, onSave }: BuilderPreviewProps) => {
+const BuilderPreview = ({ files, currentView, projectId, onViewChange, onFilesChange, onSave }: BuilderPreviewProps) => {
   const handleFileChange = (index: number, newContent: string) => {
     const updatedFiles = [...files];
     updatedFiles[index] = { ...updatedFiles[index], content: newContent };
@@ -52,10 +54,7 @@ const BuilderPreview = ({ files, currentView, onViewChange, onFilesChange, onSav
             <Save className="w-4 h-4" />
             Save
           </Button>
-          <Button variant="default" className="gap-2">
-            <Rocket className="w-4 h-4" />
-            Publish
-          </Button>
+          <PublishButton projectId={projectId} onSave={onSave} />
         </div>
       </div>
 

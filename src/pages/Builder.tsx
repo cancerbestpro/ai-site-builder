@@ -65,7 +65,7 @@ const Builder = () => {
     }
   };
 
-  const saveProject = async (projectFiles: Array<{ name: string; content: string }>) => {
+  const saveProject = async (projectFiles: Array<{ name: string; content: string }> = files) => {
     if (!user) return;
 
     try {
@@ -146,13 +146,16 @@ const Builder = () => {
         projectName={projectName}
         onProjectNameChange={setProjectName}
       />
-      <BuilderPreview 
-        files={files}
-        currentView={currentView}
-        onViewChange={setCurrentView}
-        onFilesChange={setFiles}
-        onSave={() => saveProject(files)}
-      />
+        <BuilderPreview
+          files={files}
+          currentView={currentView}
+          projectId={currentProjectId}
+          onViewChange={setCurrentView}
+          onFilesChange={setFiles}
+          onSave={async () => {
+            await saveProject(files);
+          }}
+        />
     </div>
   );
 };
