@@ -105,7 +105,7 @@ RESPOND ONLY WITH VALID JSON. NO HTML. NO EXPLANATORY TEXT OUTSIDE JSON.`;
           await new Promise(resolve => setTimeout(resolve, 200));
 
           const data = await response.json();
-          const aiResponse = data.choices[0]?.message?.content;
+          let aiResponse = data.choices[0]?.message?.content;
 
           if (!aiResponse) {
             controller.enqueue(encoder.encode('data: {"type":"error","message":"No response from AI"}\n\n'));
@@ -113,19 +113,16 @@ RESPOND ONLY WITH VALID JSON. NO HTML. NO EXPLANATORY TEXT OUTSIDE JSON.`;
             return;
           }
 
-          // Parse the AI response - extract JSON from response
+          // Extract JSON from markdown code blocks if present
+          const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || aiResponse.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            aiResponse = jsonMatch[1] || jsonMatch[0];
+          }
+
+          // Parse the AI response
           let generatedData;
           try {
-            // Try to find JSON in the response
-            const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) {
-              console.error('No JSON found in response:', aiResponse.substring(0, 500));
-              controller.enqueue(encoder.encode('data: {"type":"error","message":"AI did not return valid JSON. Please try again."}\n\n'));
-              controller.close();
-              return;
-            }
-            
-            generatedData = JSON.parse(jsonMatch[0]);
+            generatedData = JSON.parse(aiResponse);
             
             // Validate the response has the required structure
             if (!generatedData.files || !Array.isArray(generatedData.files)) {
@@ -148,35 +145,42 @@ RESPOND ONLY WITH VALID JSON. NO HTML. NO EXPLANATORY TEXT OUTSIDE JSON.`;
               controller.close();
               return;
             }
-          } catch (parseError) {
-            console.error('Failed to parse AI response:', parseError, aiResponse.substring(0, 500));
+          } catch (e) {
+            console.error('Failed to parse AI response:', e, aiResponse.substring(0, 500));
             controller.enqueue(encoder.encode('data: {"type":"error","message":"Failed to parse response. Please try again."}\n\n'));
             controller.close();
             return;
           }
 
           // Stream files one by one with detailed progress
-          if (generatedData.files && Array.isArray(generatedData.files)) {
-            controller.enqueue(encoder.encode('data: {"type":"status","message":"📦 Generating project files..."}\n\n'));
-            await new Promise(resolve => setTimeout(resolve, 300));
+          const validFiles = generatedData.files.filter((f: any) => !f.name.endsWith('.html'));
+          
+          for (let i = 0; i < validFiles.length; i++) {
+            const file = validFiles[i];
             
-            for (let i = 0; i < generatedData.files.length; i++) {
-              const file = generatedData.files[i];
-              controller.enqueue(encoder.encode(`data: {"type":"status","message":"📝 Creating ${file.name}..."}\n\n`));
-              await new Promise(resolve => setTimeout(resolve, 200));
-              controller.enqueue(encoder.encode(`data: {"type":"file","data":${JSON.stringify(file)}}\n\n`));
-              await new Promise(resolve => setTimeout(resolve, 400));
-            }
+            // Send thinking step
+            controller.enqueue(encoder.encode(`data: {"type":"thinking","message":"📝 Creating ${file.name}..."}\n\n`));
+            await new Promise(resolve => setTimeout(resolve, 150));
             
-            controller.enqueue(encoder.encode('data: {"type":"status","message":"🔧 Configuring dependencies..."}\n\n'));
-            await new Promise(resolve => setTimeout(resolve, 300));
+            // Send file creation step
+            controller.enqueue(encoder.encode(`data: {"type":"file_start","fileName":"${file.name}"}\n\n`));
+            await new Promise(resolve => setTimeout(resolve, 100));
             
-            controller.enqueue(encoder.encode('data: {"type":"status","message":"🎉 Finalizing your website..."}\n\n'));
-            await new Promise(resolve => setTimeout(resolve, 300));
+            // Send the actual file data
+            const safeFile = {
+              name: file.name,
+              content: file.content
+            };
+            controller.enqueue(encoder.encode(`data: {"type":"file","data":${JSON.stringify(safeFile)}}\n\n`));
+            await new Promise(resolve => setTimeout(resolve, 150));
+            
+            // Send file completion
+            controller.enqueue(encoder.encode(`data: {"type":"file_complete","fileName":"${file.name}"}\n\n`));
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
 
           // Send completion message
-          controller.enqueue(encoder.encode(`data: {"type":"complete","message":"${generatedData.message || 'Website generated successfully!'}"}\n\n`));
+          controller.enqueue(encoder.encode('data: {"type":"complete","message":"✅ Website generated successfully!"}\n\n'));
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           
           console.log('Website generated successfully');
