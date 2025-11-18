@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import FileItem from "./FileItem";
 import StreamingMessage from "./StreamingMessage";
+import ThinkingStep from "./ThinkingStep";
 import logo from "@/assets/logo.png";
 
 interface BuilderSidebarProps {
@@ -32,6 +33,7 @@ const BuilderSidebar = ({
 }: BuilderSidebarProps) => {
   const [prompt, setPrompt] = useState(initialPrompt);
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  const [thinkingSteps, setThinkingSteps] = useState<Array<{ id: string; message: string }>>([]);
   const { toast } = useToast();
 
   const handleGenerate = async () => {
@@ -41,6 +43,7 @@ const BuilderSidebar = ({
     const userMessage = prompt;
     setPrompt("");
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setThinkingSteps([]);
     
     try {
       const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-website`;
@@ -83,25 +86,38 @@ const BuilderSidebar = ({
           try {
             const parsed = JSON.parse(data);
             
-            if (parsed.type === 'status') {
-              // Immediately show status updates
-              setMessages(prev => {
-                const last = prev[prev.length - 1];
-                if (last?.role === 'assistant' && last.content.startsWith('🎨') || last.content.startsWith('⚡')) {
-                  return prev.slice(0, -1).concat({ role: 'assistant', content: parsed.message });
-                }
-                return prev.concat({ role: 'assistant', content: parsed.message });
-              });
-            } else if (parsed.type === 'file') {
-              const file = { ...parsed.data, status: 'creating' as const };
+            if (parsed.type === 'thinking') {
+              // Add thinking step with shimmer effect
+              setThinkingSteps(prev => [...prev, { id: Date.now().toString(), message: parsed.message }]);
+            } else if (parsed.type === 'file_start') {
+              // File is starting to be created
+              const file = { name: parsed.fileName, content: '', status: 'creating' as const };
               collectedFiles.push(file);
               onFilesUpdate([...collectedFiles]);
+            } else if (parsed.type === 'file') {
+              // Update file with actual content
+              const fileIndex = collectedFiles.findIndex(f => f.name === parsed.data.name);
+              if (fileIndex !== -1) {
+                collectedFiles[fileIndex] = { ...parsed.data, status: 'creating' as const };
+              } else {
+                collectedFiles.push({ ...parsed.data, status: 'creating' as const });
+              }
+              onFilesUpdate([...collectedFiles]);
+            } else if (parsed.type === 'file_complete') {
+              // Mark specific file as complete
+              const fileIndex = collectedFiles.findIndex(f => f.name === parsed.fileName);
+              if (fileIndex !== -1) {
+                collectedFiles[fileIndex] = { ...collectedFiles[fileIndex], status: 'complete' as const };
+                onFilesUpdate([...collectedFiles]);
+              }
             } else if (parsed.type === 'complete') {
               // Mark all files as complete
               const completedFiles = collectedFiles.map(f => ({ ...f, status: 'complete' as const }));
               onFilesUpdate(completedFiles);
               setMessages(prev => [...prev, { role: 'assistant', content: parsed.message }]);
+              setThinkingSteps([]);
             } else if (parsed.type === 'error') {
+              setThinkingSteps([]);
               throw new Error(parsed.message);
             }
           } catch (e) {
